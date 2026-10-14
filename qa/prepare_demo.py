@@ -14,7 +14,8 @@ from django.core.management import call_command
 
 output = ROOT / 'qa-output'
 output.mkdir(exist_ok=True)
-account_file = output / 'account.json'
+account_file = Path(os.environ.get('FOLDERDOCS_TEST_ACCOUNT', output / 'account.json'))
+account_file.parent.mkdir(parents=True, exist_ok=True)
 if not account_file.exists():
     stream = io.StringIO()
     call_command('seed_demo', username='demo', stdout=stream)
@@ -22,4 +23,4 @@ if not account_file.exists():
     password = next(line.split(': ', 1)[1] for line in lines if line.startswith('Demo password: '))
     account_file.write_text(json.dumps({'username': 'demo', 'password': password}), encoding='utf-8')
 call_command('worker', drain=True)
-print('Synthetic demo ready; browser credentials saved in ignored qa-output/account.json.')
+print('Synthetic demo ready; browser credentials saved in the selected QA account file.')
