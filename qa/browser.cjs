@@ -5,7 +5,7 @@ const assert = require('assert/strict');
 const { chromium } = require('playwright');
 const root = path.resolve(__dirname, '..');
 const url = process.env.FOLDERDOCS_TEST_URL || 'http://127.0.0.1:8765';
-const account = JSON.parse(fs.readFileSync(path.join(root, 'qa-output', 'account.json'), 'utf8'));
+const account = JSON.parse(fs.readFileSync(process.env.FOLDERDOCS_TEST_ACCOUNT || path.join(root, 'qa-output', 'account.json'), 'utf8'));
 const folderName = '浏览器验证-' + Date.now();
 
 (async () => {
@@ -57,7 +57,7 @@ const folderName = '浏览器验证-' + Date.now();
     page.once('dialog', dialog => dialog.accept());
     await page.getByRole('button', { name: '永久删除', exact: true }).click();
     await page.goto(url + '/');
-    await page.getByRole('link', { name: folderName, exact: false }).click();
+    await page.locator('.folder-nav').getByRole('link', { name: folderName, exact: false }).click();
     page.once('dialog', dialog => dialog.accept());
     await page.getByRole('button', { name: '移除文件夹', exact: true }).click();
     await page.goto(url + '/');

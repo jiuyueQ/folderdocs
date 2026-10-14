@@ -18,6 +18,18 @@ SQLite + one Python worker keep the installation usable without Redis, Linux, or
 
 The data directory, local secret, user uploads, native OCR environment, and demo credentials are excluded from Git. Startup binds only 127.0.0.1. Registration is open for local users in this milestone.
 
+## Folder hierarchy
+
+Folders have an optional parent within the same owner's hierarchy, with a maximum of eight levels (roots count as level one). Names are trimmed and unique among siblings; root names are separately constrained because their parent is NULL. A database check rejects self-parenting. Application validation rejects foreign parents, cycles and moves that would exceed the depth limit anywhere in the moved subtree.
+
+Create, rename/move and delete requests begin an atomic transaction with a no-op write to the owner's user row before reading the hierarchy. This serializes SQLite hierarchy mutations and takes a row lock on databases with row-level locking, so concurrent moves validate against committed structure. The tree for navigation, paths, direct document counts and descendant filtering is built from one owner-scoped query.
+
+Only leaf folders can be removed. Active and trashed documents are reparented to the removed folder's parent, or to the inbox for a root; their file paths, content, processing status and trash state are unchanged. The parent relation uses RESTRICT to protect direct folder deletion while allowing an entire owner cascade. Folder moves retain UUIDs and move descendants through their existing relations; they do not touch physical originals or previews.
+
+The library defaults to direct-folder documents. `recursive=1` expands the selected folder filter to its owner-scoped descendants, including itself, before applying search, state, type and pagination. Sidebar counts remain direct counts. Complete paths distinguish same-name folders in upload and document move controls. Breadcrumbs and child tiles allow mobile navigation where the sidebar tree is hidden.
+
+Migration 0002 preserves all existing folders as roots and leaves document associations and metadata intact. Back up the full data directory before upgrading; rollback to the old global name constraint is unsupported once duplicate names are used in different parents.
+
 ## Verified acceptance paths
 
 - Text/PDF/image upload -> queued document -> worker -> searchable text and unmodified source.
@@ -29,7 +41,11 @@ The data directory, local secret, user uploads, native OCR environment, and demo
 - Delete during processing -> lease invalidation -> discarded late result.
 - Stale processing lease -> rescheduled task.
 - Mutations require POST and CSRF protection.
+- Existing single-level database -> upgraded roots and unchanged document metadata.
+- Nested create -> rename/move subtree -> recursive search -> original bytes unchanged.
+- Self/descendant/foreign parent or too-deep move -> rejection without partial update.
+- Leaf removal -> active and trashed documents in parent; parent removal with children -> rejection.
 
 ## Deferred work
 
-Nested folders, sharing, NAS indexing, automatic backup, scalable search and Linux/Docker deployment are separate milestones. Folder names currently organize database entries; they do not rename the original directory hierarchy.
+Sharing, NAS indexing, automatic backup, scalable search and Linux/Docker deployment are separate milestones. Folder names organize database entries; they do not rename the original directory hierarchy.

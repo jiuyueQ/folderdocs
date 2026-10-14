@@ -15,6 +15,7 @@
 - 注册、登录、退出；每位用户有独立的文档与文件夹。
 - 批量上传 PDF、PNG、JPG、WEBP 和 UTF-8 TXT；重复内容提示。
 - 文档标题修改、文件夹归档、类型与处理状态筛选、分页。
+- 多级文件夹（最多 8 层）、重命名、整体移动、面包屑导航和包含子目录的搜索。
 - 有文字层的 PDF 直接提取；扫描 PDF 和图片通过 Tesseract OCR 识别。
 - 后台队列、任务状态、失败后重试、中断任务恢复。
 - 文件名和识别文字关键词搜索，展示匹配位置附近的摘要。
@@ -61,6 +62,18 @@ $env:TESSDATA_PREFIX = 'C:\Program Files\Tesseract-OCR\tessdata'
 
 这些环境变量需在启动网页和 worker 的同一个终端中设置。若简体中文语言包未安装，英语模型无法保证中文识别质量。
 
+### 按层级整理文档
+
+在文件夹页面点击“新建文件夹”，默认在当前目录下创建；也可在窗口中选择其他上级目录。通过“重命名或移动”可以调整目录及其全部子目录，同一位置的名称必须唯一。上传和文档归档的下拉菜单显示完整路径，方便区分不同位置的同名目录。
+
+文件夹页面默认只显示当前目录的文档；勾选“包含子文件夹”后，搜索、类型筛选和分页会覆盖整棵子目录。面包屑和子文件夹卡片支持在手机上逐级浏览。
+
+![多级文件夹与包含子目录的搜索](docs/screenshots/nested-folders.png)
+
+只能移除没有子文件夹的目录。文档（包括回收站中的文档）会保留在上级目录；移除顶层目录时归入“待归档”。重命名和移动只更新数据库中的归档关系，原文件不会改名或迁移。
+
+从旧版升级时，先停止服务并备份完整数据目录。启动脚本会自动迁移数据库，已有文件夹保留为顶层目录。使用同名子目录后，不能直接退回旧版的单层目录数据库结构。
+
 ### 演示资料
 
 ```powershell
@@ -97,6 +110,23 @@ $env:FOLDERDOCS_TEST_OCR = '1'
 .\.venv\Scripts\python.exe manage.py test
 ```
 
+浏览器回归检查仅使用虚构资料。先安装 Playwright（`npm install --no-save playwright`，或通过 `NODE_PATH` 使用已有安装）；Windows 默认使用已安装的 Edge，可设置 `PLAYWRIGHT_CHANNEL` 选择其他已安装的浏览器。
+
+```powershell
+# 新建独立测试数据目录，避免修改个人文档；下面的终端使用相同环境变量。
+$env:FOLDERDOCS_DATA_DIR = "$PWD\qa-output\browser-data"
+$env:FOLDERDOCS_TEST_ACCOUNT = "$env:FOLDERDOCS_DATA_DIR\account.json"
+$env:FOLDERDOCS_TEST_URL = 'http://127.0.0.1:8766'
+.\.venv\Scripts\python.exe manage.py migrate --noinput
+.\.venv\Scripts\python.exe qa\prepare_demo.py
+.\scripts\start.ps1 -Port 8766
+# 在另一个配置相同环境变量的终端：
+node qa\browser.cjs
+node qa\folders.cjs
+```
+
+检查覆盖上传、识别、下载、回收站，以及多级目录创建、移动、递归搜索、文件内容保留和手机导航；截图写入 `docs/screenshots/`，账号密码留在被忽略的 `qa-output/` 中。
+
 ## 结构与数据
 
 ```text
@@ -116,9 +146,10 @@ data/             SQLite 数据库、密钥、原文件、预览图（不提交 
 
 ## 第一版边界与后续计划
 
-当前限制：每次 1–20 个文件、单个文件 25 MB、PDF 最多 100 页；扫描页仅对前 30 页执行 OCR（其余页会提示未识别），文字型页面仍提取全文。文件夹为单层。数据库中的文字保存最多 200 万字符。
+当前限制：每次 1–20 个文件、单个文件 25 MB、PDF 最多 100 页；扫描页仅对前 30 页执行 OCR（其余页会提示未识别），文字型页面仍提取全文。文件夹最多 8 层，每个名称最多 80 个字符。数据库中的文字保存最多 200 万字符。
 
-- [ ] 多级文件夹与共享文件夹。
+- [x] 多级文件夹、重命名与整体移动。
+- [ ] 共享文件夹。
 - [ ] 有效期分享链接、撤销分享与邀请注册。
 - [ ] NAS 原位扫描及增量索引。
 - [ ] PostgreSQL 与专业全文检索。

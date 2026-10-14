@@ -8,6 +8,7 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('register/', views.register, name='register'),
     path('folders/create/', views.create_folder, name='create_folder'),
+    path('folders/<uuid:pk>/edit/', views.edit_folder, name='edit_folder'),
     path('folders/<uuid:pk>/delete/', views.delete_folder, name='delete_folder'),
     path('upload/', views.upload, name='upload'),
     path('documents/<uuid:pk>/', views.detail, name='detail'),
