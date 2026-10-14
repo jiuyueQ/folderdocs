@@ -72,6 +72,8 @@ $env:TESSDATA_PREFIX = 'C:\Program Files\Tesseract-OCR\tessdata'
 
 ## 开发与测试
 
+PR 审查规则见 [AGENTS.md](AGENTS.md)，自动审查配置与完整审查提示词见 [PR 审查助手](docs/PR_REVIEW.md)。
+
 ```powershell
 .\.venv\Scripts\python.exe manage.py check
 .\.venv\Scripts\python.exe manage.py makemigrations --check --dry-run
