@@ -1,0 +1,2 @@
+{% extends 'base.html' %}
+{% block layout %}<main class="register-layout"><a class="brand" href="/"><span class="brand-mark">F<span>·</span></span>FolderDocs</a><div class="auth-card"><span class="auth-badge">从整理第一份文档开始</span><h2>创建你的私有空间</h2><p>每位用户的文档独立保存。</p><form method="post">{% csrf_token %}{{ form.as_p }}<button class="button primary">创建账户 →</button></form><p class="auth-switch">已有账户？ <a href="{% url 'login' %}">返回登录</a></p></div></main>{% endblock %}

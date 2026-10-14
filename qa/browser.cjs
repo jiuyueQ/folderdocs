@@ -1,0 +1,74 @@
+// Browser integration checks. Use npm install --no-save playwright or set NODE_PATH.
+const fs = require('fs');
+const path = require('path');
+const assert = require('assert/strict');
+const { chromium } = require('playwright');
+const root = path.resolve(__dirname, '..');
+const url = process.env.FOLDERDOCS_TEST_URL || 'http://127.0.0.1:8765';
+const account = JSON.parse(fs.readFileSync(path.join(root, 'qa-output', 'account.json'), 'utf8'));
+const folderName = '浏览器验证-' + Date.now();
+
+(async () => {
+  const browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || 'msedge' });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1050 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  fs.mkdirSync(path.join(root, 'docs', 'screenshots'), { recursive: true });
+  try {
+    await page.goto(url + '/login/');
+    await page.screenshot({ path: path.join(root, 'docs', 'screenshots', 'login.png'), fullPage: true });
+    await page.locator('#id_username').fill(account.username);
+    await page.locator('#id_password').fill(account.password);
+    await Promise.all([page.waitForURL(url + '/'), page.getByRole('button', { name: '登录我的空间' }).click()]);
+    assert.equal(await page.locator('.document-card').count(), 6);
+    await page.screenshot({ path: path.join(root, 'docs', 'screenshots', 'library.png'), fullPage: true });
+    await page.getByRole('button', { name: '新建文件夹', exact: true }).click();
+    await page.locator('#folder-dialog input[name=name]').fill(folderName);
+    await Promise.all([page.waitForURL(/folder=/), page.getByRole('button', { name: '创建文件夹', exact: true }).click()]);
+    await page.getByRole('button', { name: /上传文档/ }).click();
+    await page.locator('#upload-dialog input[type=file]').setInputFiles({ name: 'browser-flow.txt', mimeType: 'text/plain', buffer: Buffer.from('Browser flow search token BROWSER-42 / 保修凭证') });
+    await Promise.all([page.waitForNavigation(), page.getByRole('button', { name: '上传并识别', exact: true }).click()]);
+    await page.getByRole('link', { name: 'browser-flow', exact: true }).click();
+    await page.locator('.status-ready').waitFor({ timeout: 25000 });
+    await page.locator('input[name=title]').fill('浏览器上传验证');
+    await Promise.all([page.waitForNavigation(), page.getByRole('button', { name: '保存修改', exact: true }).click()]);
+    assert.equal(await page.locator('h1').textContent(), '浏览器上传验证');
+    await page.goto(url + '/?q=BROWSER-42');
+    assert.equal(await page.locator('.document-card').count(), 1);
+    await page.locator('.document-title').click();
+    const downloadEvent = page.waitForEvent('download');
+    await page.getByRole('link', { name: '下载原文件' }).click();
+    const download = await downloadEvent;
+    assert.equal(download.suggestedFilename(), 'browser-flow.txt');
+    await download.saveAs(path.join(root, 'qa-output', 'download.txt'));
+    assert.match(fs.readFileSync(path.join(root, 'qa-output', 'download.txt'), 'utf8'), /BROWSER-42/);
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: '移入回收站', exact: true }).click();
+    await page.goto(url + '/?view=trash');
+    await page.getByRole('button', { name: '恢复文档', exact: false }).click();
+    await page.goto(url + '/?q=BROWSER-42');
+    assert.equal(await page.locator('.document-card').count(), 1);
+    await page.locator('.document-title').click();
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: '移入回收站', exact: true }).click();
+    await page.goto(url + '/?view=trash');
+    await page.locator('.document-title').click();
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: '永久删除', exact: true }).click();
+    await page.goto(url + '/');
+    await page.getByRole('link', { name: folderName, exact: false }).click();
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: '移除文件夹', exact: true }).click();
+    await page.goto(url + '/');
+    await page.screenshot({ path: path.join(root, 'docs', 'screenshots', 'library.png'), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: path.join(root, 'docs', 'screenshots', 'mobile.png'), fullPage: true });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    assert.deepEqual(errors, []);
+    console.log('Browser checks passed: login, folders, upload, processing, search, rename, download, trash/restore/purge, responsive layout.');
+  } finally {
+    await context.close();
+    await browser.close();
+  }
+})().catch(error => { console.error(error); process.exit(1); });

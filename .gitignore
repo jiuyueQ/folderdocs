@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.py[cod]
+data/
+.env
+.pytest_cache/
+staticfiles/
+*.sqlite3
+qa-output/
+.tools/
